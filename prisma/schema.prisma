@@ -1,0 +1,23 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model Resource {
+  id        String   @id @default(uuid())
+  filename  String   @unique
+  path      String   
+  type      ResourceType 
+  size      Int      
+  createdAt DateTime @default(now()) 
+}
+
+enum ResourceType {
+  IMAGE
+  VIDEO
+  FILE
+}
