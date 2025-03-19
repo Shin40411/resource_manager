@@ -1,14 +1,15 @@
-import { Controller, Param, Get, Post, Delete, Query, UploadedFiles, UseInterceptors, UseGuards, Res, HttpException, HttpStatus } from '@nestjs/common';
+import { Controller, Param, Get, Post, Delete, Query, UploadedFiles, UseInterceptors, UseGuards, Res, HttpException, HttpStatus, Body } from '@nestjs/common';
 import { AuthGuard } from 'src/auth/auth.guard';
 import { ResourcesService } from './resources.service';
 import { multerConfig } from '../common/filters/multer.config';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { Response } from 'express';
+import { AuthService } from 'src/auth/auth.service';
 
 @Controller('resources')
 @UseGuards(AuthGuard)
 export class ResourcesController {
-    constructor(private readonly resourceService: ResourcesService) { }
+    constructor(private readonly resourceService: ResourcesService, private readonly authService: AuthService) { }
 
     @Post('uploads')
     @UseInterceptors(FilesInterceptor('files', 10, multerConfig))
@@ -21,11 +22,11 @@ export class ResourcesController {
         try {
             return this.resourceService.getDecryptedFile(filename, res);
         } catch (error) {
-            throw new HttpException('message', HttpStatus.INTERNAL_SERVER_ERROR);
+            throw new HttpException('Failed to get file', HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
 
-    @Post('stats')
+    @Get('stats')
     getStats() {
         const countFiles = this.resourceService.getStats();
         return {
@@ -35,9 +36,24 @@ export class ResourcesController {
         };
     }
 
+    @Get('stats/:type')
+    async getStatBy(@Param('type') type: string) {
+        const validTypes = ['IMAGE', 'VIDEO', 'FILE'] as const;
+        if (!validTypes.includes(type as any)) {
+            throw new HttpException('Invalid type parameter', HttpStatus.BAD_REQUEST);
+        }
+        const countFiles = await this.resourceService.getStatOnDb(type as 'IMAGE' | 'VIDEO' | 'FILE');
+        return { count: countFiles };
+    }
+
     @Delete('delete')
     async deleteFile(@Query('filename') filename: string) {
         return await this.resourceService.removeFile(filename);
+    }
+
+    @Get('me')
+    async find(@Body('email') email: string) {
+        return this.authService.findByUser(email);
     }
 }
 

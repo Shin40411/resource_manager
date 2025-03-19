@@ -16,6 +16,14 @@ model Resource {
   createdAt DateTime @default(now()) 
 }
 
+model user {
+  id        Int       @id @default(autoincrement())
+  name      String
+  email     String    @unique
+  password  String
+  createdAt DateTime  @default(now())
+}
+
 enum ResourceType {
   IMAGE
   VIDEO

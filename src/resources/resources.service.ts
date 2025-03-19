@@ -15,7 +15,7 @@ export class ResourcesService {
     constructor(private readonly prisma: PrismaService, private readonly configService: ConfigService) {
         const keyFromEnv = this.configService.get<string>('ENCRYPTION_KEY');
         if (!keyFromEnv || keyFromEnv.length !== 64) {
-            throw new Error('ENCRYPTION_KEY không chính xác. Phải là 64 ký tự dạng hex.');
+            throw new HttpException('ENCRYPTION_KEY không chính xác. Phải là 64 ký tự dạng hex.', HttpStatus.BAD_REQUEST);
         }
 
         this.ENCRYPTION_KEY = Buffer.from(keyFromEnv, 'hex');
@@ -24,7 +24,7 @@ export class ResourcesService {
     private encryptFile(inputPath: string, outputPath: string): Promise<void> {
         return new Promise((resolve, reject) => {
             if (!fs.existsSync(inputPath)) {
-                return reject(new Error(`Không tìm thấy file: ${inputPath}`));
+                return reject(new HttpException(`Không tìm thấy file: ${inputPath}`, HttpStatus.NOT_FOUND));
             }
 
             try {
@@ -80,13 +80,13 @@ export class ResourcesService {
                 const encryptedFilePath = path.join(path.dirname(filePath), encryptedFileName);
 
                 if (!fs.existsSync(filePath)) {
-                    throw new HttpException('message', HttpStatus.NOT_FOUND);
+                    throw new HttpException('Tập tin không tồn tại', HttpStatus.NOT_FOUND);
                 }
 
                 await this.encryptFile(filePath, encryptedFilePath);
                 fs.unlink(filePath, (err) => {
                     if (err)
-                        throw new HttpException('message', HttpStatus.BAD_REQUEST);
+                        throw new HttpException('Đã xảy ra lỗi khi xoá tập tin gốc', HttpStatus.BAD_REQUEST);
                 });
 
                 return await this.saveFileData(encryptedFileName, encryptedFilePath.replace('uploads/', '/'), fileType, file.size);
@@ -107,7 +107,7 @@ export class ResourcesService {
             });
         } catch (error) {
             console.error('Lỗi khi lưu vào database:', error);
-            throw new HttpException('message', HttpStatus.INTERNAL_SERVER_ERROR);
+            throw new HttpException('Đã có lỗi xảy ra', HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
 
@@ -117,12 +117,12 @@ export class ResourcesService {
         });
 
         if (!resource) {
-            throw new HttpException('message', HttpStatus.NOT_FOUND);
+            throw new HttpException('Không tìm thấy dữ liệu tập tin', HttpStatus.NOT_FOUND);
         }
 
         const encryptedFilePath = path.join(resource.path);
         if (!fs.existsSync(encryptedFilePath)) {
-            throw new HttpException('message', HttpStatus.NOT_FOUND);
+            throw new HttpException('Không tìm thấy dữ liệu tập tin', HttpStatus.NOT_FOUND);
         }
 
         const input = fs.createReadStream(encryptedFilePath);
@@ -132,7 +132,7 @@ export class ResourcesService {
         input.once('readable', () => {
             const readBytes = input.read(iv.length);
             if (!readBytes) {
-                throw new Error('Không thể đọc IV từ file');
+                throw new HttpException('Không thể đọc IV từ file', HttpStatus.BAD_REQUEST);
             }
             iv.set(readBytes);
 
@@ -157,7 +157,7 @@ export class ResourcesService {
             });
 
             if (!file_existed) {
-                throw new HttpException('File not found', HttpStatus.NOT_FOUND);
+                throw new HttpException('Tập tin không tồn tại', HttpStatus.NOT_FOUND);
             }
 
             for (const folder of folders) {
@@ -176,8 +176,23 @@ export class ResourcesService {
             });
 
         } catch (error) {
-            throw new HttpException('Internal server error', HttpStatus.INTERNAL_SERVER_ERROR);
+            throw new HttpException('Đã có lỗi xảy ra', HttpStatus.INTERNAL_SERVER_ERROR);
         }
+    }
+
+    async getStatOnDb(typeOfFile: 'IMAGE' | 'VIDEO' | 'FILE') {
+        const filesOnStat = await this.prisma.resource.findMany(
+            {
+                where: {
+                    type: typeOfFile
+                }
+            }
+        );
+
+        if (filesOnStat.length > 0)
+            return filesOnStat.length;
+
+        return 0;
     }
 
     getStats() {

@@ -1,5 +1,6 @@
-import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/common';
+import { CanActivate, ExecutionContext, Injectable, HttpException, HttpStatus } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import * as jwt from 'jsonwebtoken';
 
 @Injectable()
 export class AuthGuard implements CanActivate {
@@ -7,13 +8,21 @@ export class AuthGuard implements CanActivate {
 
   canActivate(context: ExecutionContext): boolean {
     const request = context.switchToHttp().getRequest();
-    const apiKey = request.headers['x-api-key'];
-    const validApiKey = this.configService.get<string>('API_KEY');
+    const authHeader = request.headers['authorization'];
 
-    if (!apiKey || apiKey !== validApiKey) {
-      throw new UnauthorizedException('Api key không chính xác!');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      throw new HttpException('Bạn chưa đăng nhập', HttpStatus.UNAUTHORIZED);
     }
 
-    return true;
+    const token = authHeader.split(' ')[1];
+    const JWT_SECRET = this.configService.get<string>('API_KEY') || 'fallback_secret';
+
+    try {
+      const decoded = jwt.verify(token, JWT_SECRET);
+      request.user = decoded;
+      return true;
+    } catch (error) {
+      throw new HttpException('Token không hợp lệ hoặc đã hết hạn', HttpStatus.UNAUTHORIZED);
+    }
   }
 }

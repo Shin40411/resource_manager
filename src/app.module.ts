@@ -7,7 +7,7 @@ import { ConfigModule } from '@nestjs/config';
 import { ResourcesModule } from './resources/resources.module';
 
 @Module({
-  imports: [AuthModule, PrismaModule, ConfigModule.forRoot(), ResourcesModule],
+  imports: [AuthModule, ResourcesModule, PrismaModule, ConfigModule.forRoot()],
   controllers: [AppController],
   providers: [AppService],
 })
