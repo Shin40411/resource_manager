@@ -16,12 +16,14 @@ export class AuthService {
         const { email, password } = loginDto;
         const user = await this.prisma.user.findUnique({ where: { email } });
 
-        if (!user)
-            throw new HttpException("Không tìm thấy thông tin người dùng", HttpStatus.NOT_FOUND);
+        if (!user) {
+            return { statusCode: HttpStatus.NOT_FOUND, message: "Không tìm thấy thông tin người dùng" };
+        }
 
         const isPasswordValid = await bcrypt.compare(password, user.password);
-        if (!isPasswordValid)
-            throw new HttpException('Mật khẩu không chính xác', HttpStatus.UNAUTHORIZED);
+        if (!isPasswordValid) {
+            return { statusCode: HttpStatus.UNAUTHORIZED, message: "Mật khẩu không chính xác" };
+        }
 
         const token = jwt.sign(
             { userId: user.id, email: user.email },
@@ -29,7 +31,12 @@ export class AuthService {
             { expiresIn: '3d' } as jwt.SignOptions
         );
 
-        return { accessToken: token, user };
+        return {
+            statusCode: HttpStatus.OK,
+            message: "Đăng nhập thành công",
+            accessToken: token,
+            user
+        };
     }
 
     async registration(signupDto: RegisterDto) {
