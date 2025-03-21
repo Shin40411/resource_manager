@@ -41,9 +41,9 @@ export class AuthService {
 
     async registration(signupDto: RegisterDto) {
         try {
-            const { name, email, password } = signupDto;
+            const { fullname, emailAddress, password } = signupDto;
 
-            const existingUser = await this.prisma.user.findUnique({ where: { email } });
+            const existingUser = await this.prisma.user.findUnique({ where: { email: emailAddress } });
             if (existingUser)
                 throw new HttpException('Thông tin người dùng đã tồn tại', HttpStatus.CONFLICT);
 
@@ -51,8 +51,8 @@ export class AuthService {
 
             return this.prisma.user.create({
                 data: {
-                    name,
-                    email,
+                    name: fullname,
+                    email: emailAddress,
                     password: hashedPassword
                 },
             });
