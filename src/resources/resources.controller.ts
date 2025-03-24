@@ -13,8 +13,12 @@ export class ResourcesController {
 
     @Post('uploads')
     @UseInterceptors(FilesInterceptor('files', 10, multerConfig))
-    async uploadFiles(@UploadedFiles() files: Express.Multer.File[]) {
-        return this.resourceService.handleUpload(files);
+    async uploadFiles(@UploadedFiles() files: Express.Multer.File[], @Body('userId') userId: string) {
+        const numericUserId = Number(userId);
+        if (isNaN(numericUserId)) {
+            throw new HttpException('Invalid userId', HttpStatus.BAD_REQUEST);
+        }
+        return this.resourceService.handleUpload(files, numericUserId);
     }
 
     @Get('file/:filename')
@@ -24,6 +28,12 @@ export class ResourcesController {
         } catch (error) {
             throw new HttpException('Failed to get file', HttpStatus.INTERNAL_SERVER_ERROR);
         }
+    }
+
+    @Get('files')
+    async getFiles(@Res() res: Response) {
+        const files = await this.resourceService.getFileList();
+        return res.status(200).json({ files });
     }
 
     @Get('stats')

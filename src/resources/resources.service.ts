@@ -60,7 +60,7 @@ export class ResourcesService {
         return mimeTypes[type] || 'application/octet-stream';
     }
 
-    async handleUpload(files: any[]) {
+    async handleUpload(files: any[], userId: number) {
         const filePaths = await Promise.all(
             files.map(async (file) => {
                 let filePath = file.path;
@@ -89,20 +89,31 @@ export class ResourcesService {
                         throw new HttpException('Đã xảy ra lỗi khi xoá tập tin gốc', HttpStatus.BAD_REQUEST);
                 });
 
-                return await this.saveFileData(encryptedFileName, encryptedFilePath.replace('uploads/', '/'), fileType, file.size);
+                return await this.saveFileData(encryptedFileName, file.originalname, encryptedFilePath.replace('uploads/', '/'), fileType, file.size, userId);
             })
         );
         return { files: filePaths };
     }
 
-    async saveFileData(filename: string, path: string, type: 'IMAGE' | 'VIDEO' | 'FILE', size: number) {
+    async saveFileData(
+        filename: string,
+        originalFilename: string,
+        path: string,
+        type: 'IMAGE' | 'VIDEO' | 'FILE',
+        size: number,
+        userId: number,
+        folderId?: string
+    ) {
         try {
             return await this.prisma.resource.create({
                 data: {
                     filename,
+                    originalFilename,
                     path,
                     type,
                     size,
+                    userId,
+                    folderId,
                 },
             });
         } catch (error) {
@@ -193,6 +204,10 @@ export class ResourcesService {
             return filesOnStat.length;
 
         return 0;
+    }
+
+    async getFileList() {
+        return this.prisma.resource.findMany();
     }
 
     getStats() {
