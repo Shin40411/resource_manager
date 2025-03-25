@@ -1,4 +1,4 @@
-import { Controller, Param, Get, Post, Delete, Query, UploadedFiles, UseInterceptors, UseGuards, Res, HttpException, HttpStatus, Body } from '@nestjs/common';
+import { Controller, Param, Get, Post, Put, Delete, Query, UploadedFiles, UseInterceptors, UseGuards, Res, HttpException, HttpStatus, Body } from '@nestjs/common';
 import { AuthGuard } from 'src/auth/auth.guard';
 import { ResourcesService } from './resources.service';
 import { multerConfig } from '../common/filters/multer.config';
@@ -10,7 +10,7 @@ import { AuthService } from 'src/auth/auth.service';
 @UseGuards(AuthGuard)
 export class ResourcesController {
     constructor(private readonly resourceService: ResourcesService, private readonly authService: AuthService) { }
-
+    // POST
     @Post('uploads')
     @UseInterceptors(FilesInterceptor('files', 10, multerConfig))
     async uploadFiles(@UploadedFiles() files: Express.Multer.File[], @Body('userId') userId: string) {
@@ -21,6 +21,23 @@ export class ResourcesController {
         return this.resourceService.handleUpload(files, numericUserId);
     }
 
+    @Post('folder')
+    async createFolder(@Body('name') name: string) {
+        return this.resourceService.createFolder(name);
+    }
+
+    //PUT
+    @Put('folder')
+    async renameFolder(@Body('idFolder') idFolder: string, @Body('newName') newName: string) {
+        return this.resourceService.editFolder(idFolder, newName);
+    }
+
+    @Put('file')
+    async updateFile(@Body('idFile') idFile: string, @Body('dataPush') dataPush: any) {
+        return this.resourceService.editFileData(idFile, dataPush);
+    }
+
+    // GET
     @Get('file/:filename')
     async getFile(@Param('filename') filename: string, @Res() res: Response) {
         try {
@@ -56,14 +73,20 @@ export class ResourcesController {
         return { count: countFiles };
     }
 
-    @Delete('delete')
-    async deleteFile(@Query('filename') filename: string) {
-        return await this.resourceService.removeFile(filename);
-    }
-
     @Get('me')
     async find(@Body('email') email: string) {
         return this.authService.findByUser(email);
+    }
+
+    @Get('folder')
+    async getFolders() {
+        return this.resourceService.getFolderList();
+    }
+
+    // DELETE
+    @Delete('delete')
+    async deleteFile(@Query('filename') filename: string) {
+        return await this.resourceService.removeFile(filename);
     }
 }
 
