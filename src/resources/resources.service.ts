@@ -61,7 +61,7 @@ export class ResourcesService {
         return mimeTypes[type] || 'application/octet-stream';
     }
 
-    async handleUpload(files: any[], userId: number) {
+    async handleUpload(files: any[], userId: number, folderId?: string) {
         const filePaths = await Promise.all(
             files.map(async (file) => {
                 let filePath = file.path;
@@ -102,7 +102,7 @@ export class ResourcesService {
                     }
                 });
 
-                return await this.saveFileData(encryptedFileName, file.originalname, encryptedFilePath.replace('uploads/', '/'), fileType, file.size, userId);
+                return await this.saveFileData(encryptedFileName, file.originalname, encryptedFilePath.replace('uploads/', '/'), fileType, file.size, userId, folderId);
             })
         );
         return { files: filePaths };
@@ -232,7 +232,7 @@ export class ResourcesService {
             if (!payload || !payload.data || Object.keys(payload.data).length === 0) {
                 throw new HttpException('Dữ liệu cập nhật không hợp lệ', HttpStatus.BAD_REQUEST);
             }
-    
+
             return await this.prisma.resource.update({
                 where: { id },
                 data: payload.data,
@@ -241,7 +241,7 @@ export class ResourcesService {
             console.error('Lỗi khi cập nhật dữ liệu tập tin:', error);
             throw new HttpException('Đã có lỗi xảy ra khi cập nhật dữ liệu tập tin', HttpStatus.INTERNAL_SERVER_ERROR);
         }
-    }      
+    }
 
     async getFolderList() {
         const folders = await this.prisma.folder.findMany({
@@ -275,7 +275,38 @@ export class ResourcesService {
     }
 
     async editFolder(folderId: string, folderName: string) {
-        return this.prisma.folder.update({ data: { name: folderName }, where: { id: folderId } });
+        try {
+            return this.prisma.folder.update({ data: { name: folderName }, where: { id: folderId } });
+        } catch (error) {
+            console.error(error);
+            throw new HttpException('Đã có lỗi xảy ra khi cập nhật thư mục', HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    async removeFolder(folderId: string) {
+        const folder = await this.prisma.folder.findUnique({
+            where: { id: folderId },
+        });
+
+        if (!folder) {
+            throw new HttpException('Thư mục không tồn tại', HttpStatus.NOT_FOUND);
+        }
+
+        try {
+            const filesExisting = await this.prisma.resource.findMany({
+                where: { folderId },
+            });
+
+            if (filesExisting.length > 0) {
+                filesExisting.forEach(async (file) => {
+                    await this.removeFile(file.filename);
+                });
+            }
+
+            return this.prisma.folder.delete({ where: { id: folderId } });
+        } catch (error) {
+            throw new HttpException('Đã có lỗi xảy ra', HttpStatus.INTERNAL_SERVER_ERROR);
+        }
     }
 
     getStats() {

@@ -13,12 +13,16 @@ export class ResourcesController {
     // POST
     @Post('uploads')
     @UseInterceptors(FilesInterceptor('files', 10, multerConfig))
-    async uploadFiles(@UploadedFiles() files: Express.Multer.File[], @Body('userId') userId: string) {
+    async uploadFiles(
+        @UploadedFiles() files: Express.Multer.File[], 
+        @Body('userId') userId: string, 
+        @Body('folderId') folderId?: string
+    ) {
         const numericUserId = Number(userId);
         if (isNaN(numericUserId)) {
             throw new HttpException('Invalid userId', HttpStatus.BAD_REQUEST);
         }
-        return this.resourceService.handleUpload(files, numericUserId);
+        return this.resourceService.handleUpload(files, numericUserId, folderId);
     }
 
     @Post('folder')
@@ -29,6 +33,8 @@ export class ResourcesController {
     //PUT
     @Put('folder')
     async renameFolder(@Body('idFolder') idFolder: string, @Body('newName') newName: string) {
+        console.log('id:' + idFolder);
+        console.log('newname:' + newName);
         return this.resourceService.editFolder(idFolder, newName);
     }
 
@@ -87,6 +93,11 @@ export class ResourcesController {
     @Delete('delete')
     async deleteFile(@Query('filename') filename: string) {
         return await this.resourceService.removeFile(filename);
+    }
+
+    @Delete('folder')
+    async deleteFolder(@Query('id') idFolder: string) {
+        return await this.resourceService.removeFolder(idFolder);
     }
 }
 
