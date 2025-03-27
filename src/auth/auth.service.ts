@@ -45,17 +45,19 @@ export class AuthService {
 
             const existingUser = await this.prisma.user.findUnique({ where: { email: emailAddress } });
             if (existingUser)
-                throw new HttpException('Thông tin người dùng đã tồn tại', HttpStatus.CONFLICT);
+                return { data: { statuscode: HttpStatus.CONFLICT, message: 'Email đăng ký đã tồn tại' } };
 
             const hashedPassword = await bcrypt.hash(password, 10);
 
-            return this.prisma.user.create({
+            await this.prisma.user.create({
                 data: {
                     name: fullname,
                     email: emailAddress,
                     password: hashedPassword
                 },
             });
+
+            return { data: { statuscode: HttpStatus.OK, message: 'Đăng ký thành công, vui lòng quay lại trang đăng nhập để tiếp tục' } };
         } catch (error) {
             console.error(error);
             throw new HttpException('Đã có lỗi xảy ra', HttpStatus.INTERNAL_SERVER_ERROR);
