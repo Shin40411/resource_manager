@@ -53,9 +53,9 @@ export class ResourcesController {
         }
     }
 
-    @Get('files')
-    async getFiles(@Res() res: Response) {
-        const files = await this.resourceService.getFileList();
+    @Get(':userId/files')
+    async getFiles(@Param('userId') userId: string, @Res() res: Response) {
+        const files = await this.resourceService.getFileList(userId);
         return res.status(200).json({ files });
     }
 
@@ -84,9 +84,9 @@ export class ResourcesController {
         return this.authService.findByUser(email);
     }
 
-    @Get('folder')
-    async getFolders() {
-        return this.resourceService.getFolderList();
+    @Get(':userId/folder')
+    async getFolders(@Param('userId') userId: string) {
+        return this.resourceService.getFolderList(userId);
     }
 
     // DELETE

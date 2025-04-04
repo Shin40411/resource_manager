@@ -12,6 +12,9 @@ model Folder {
   name      String
   createdAt DateTime   @default(now())
 
+  userId    Int? 
+  user      User?      @relation(fields: [userId], references: [id], onDelete: SetNull)
+
   resources Resource[]
 }
 
@@ -39,6 +42,7 @@ model User {
   createdAt DateTime  @default(now())
 
   resources Resource[]
+  folders Folder[]
 }
 
 enum ResourceType {

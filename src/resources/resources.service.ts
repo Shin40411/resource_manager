@@ -219,8 +219,11 @@ export class ResourcesService {
         return 0;
     }
 
-    async getFileList() {
+    async getFileList(userId: string) {
         return this.prisma.resource.findMany({
+            where: {
+                userId: Number(userId),
+            },
             orderBy: {
                 createdAt: 'desc',
             },
@@ -243,8 +246,14 @@ export class ResourcesService {
         }
     }
 
-    async getFolderList() {
+    async getFolderList(userId: string) {
         const folders = await this.prisma.folder.findMany({
+            where: {
+                userId: Number(userId),
+            },
+            include: {
+                resources: true,
+            },
             orderBy: {
                 createdAt: 'desc',
             },
