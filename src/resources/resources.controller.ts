@@ -26,15 +26,13 @@ export class ResourcesController {
     }
 
     @Post('folder')
-    async createFolder(@Body('name') name: string) {
-        return this.resourceService.createFolder(name);
+    async createFolder(@Body('name') name: string, @Body('userId') userId: string) {
+        return this.resourceService.createFolder(name, userId);
     }
 
     //PUT
     @Put('folder')
     async renameFolder(@Body('idFolder') idFolder: string, @Body('newName') newName: string) {
-        console.log('id:' + idFolder);
-        console.log('newname:' + newName);
         return this.resourceService.editFolder(idFolder, newName);
     }
 

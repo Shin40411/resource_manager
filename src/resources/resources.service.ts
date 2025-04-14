@@ -274,9 +274,20 @@ export class ResourcesService {
         return folderList;
     }
 
-    async createFolder(folderName: string) {
+    async createFolder(folderName: string, userId: string) {
         try {
-            return await this.prisma.folder.create({ data: { name: folderName } });
+            const existingFolder = await this.prisma.folder.findFirst({
+                where: {
+                    name: folderName,
+                    userId: Number(userId),
+                },
+            });
+            if (existingFolder) {
+                throw new HttpException('Thư mục đã tồn tại', HttpStatus.BAD_REQUEST);
+            }
+            const userIdNumber = Number(userId);
+
+            return await this.prisma.folder.create({ data: { name: folderName, userId: userIdNumber } });
         } catch (error) {
             console.error('Lỗi khi tạo thư mục:', error);
             throw new HttpException('Đã có lỗi xảy ra khi tạo thư mục', HttpStatus.INTERNAL_SERVER_ERROR);
