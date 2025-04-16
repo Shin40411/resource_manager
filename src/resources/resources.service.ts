@@ -65,6 +65,8 @@ export class ResourcesService {
         const filePaths = await Promise.all(
             files.map(async (file) => {
                 let filePath = file.path;
+                const rawName = file.originalname;
+                const decodedName = Buffer.from(rawName, 'latin1').toString('utf8');
 
                 if (file.mimetype.startsWith('image')) {
                     filePath = await compressImage(file.path);
@@ -102,7 +104,7 @@ export class ResourcesService {
                     }
                 });
 
-                return await this.saveFileData(encryptedFileName, file.originalname, encryptedFilePath.replace('uploads/', '/'), fileType, file.size, userId, folderId);
+                return await this.saveFileData(encryptedFileName, decodedName, encryptedFilePath.replace('uploads/', '/'), fileType, file.size, userId, folderId);
             })
         );
         return { files: filePaths };
@@ -272,6 +274,18 @@ export class ResourcesService {
         );
 
         return folderList;
+    }
+
+    async getFilesByFolder(folderId: string, userId: string) {
+        return this.prisma.resource.findMany({
+            where: {
+                folderId,
+                userId: Number(userId),
+            },
+            orderBy: {
+                createdAt: 'desc',
+            },
+        });
     }
 
     async createFolder(folderName: string, userId: string) {

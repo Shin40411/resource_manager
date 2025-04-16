@@ -57,6 +57,12 @@ export class ResourcesController {
         return res.status(200).json({ files });
     }
 
+    @Get(':userId/folder/:folderId/files')
+    async getFilesByFolder(@Param('folderId') folderId: string, @Param('userId') userId: string , @Res() res: Response) {
+        const files = await this.resourceService.getFilesByFolder(folderId, userId);
+        return res.status(200).json({files});
+    }
+
     @Get('stats')
     getStats() {
         const countFiles = this.resourceService.getStats();
