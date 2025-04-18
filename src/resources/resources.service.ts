@@ -7,6 +7,7 @@ import { Response } from 'express';
 import { PrismaService } from 'src/prisma/prisma.service';
 import { compressImage } from '../common/filters/image-processor';
 import { Resource } from '@prisma/client';
+import { promises as fsPromises } from 'fs';
 
 @Injectable()
 export class ResourcesService {
@@ -189,10 +190,13 @@ export class ResourcesService {
             for (const folder of folders) {
                 if (file_existed?.filename) {
                     const potentialPath = path.join('uploads', folder, file_existed.filename);
-                    if (fs.existsSync(potentialPath)) {
-                        fs.unlinkSync(potentialPath);
+                    try {
+                        await fsPromises.access(potentialPath);
+                        await fsPromises.unlink(potentialPath);
                         deletedFiles.push(file_existed.filename);
                         break;
+                    } catch (err) {
+                        // Không làm gì ...
                     }
                 }
             }
@@ -202,6 +206,7 @@ export class ResourcesService {
             });
 
         } catch (error) {
+            console.log(error);
             throw new HttpException('Đã có lỗi xảy ra', HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
@@ -332,9 +337,12 @@ export class ResourcesService {
             });
 
             if (filesExisting.length > 0) {
-                filesExisting.forEach(async (file) => {
+                // filesExisting.forEach(async (file) => { 
+                //     await this.removeFile(file.filename); forEach(async...) không await từng lần gọi removeFile
+                // });
+                for (const file of filesExisting) {
                     await this.removeFile(file.filename);
-                });
+                }                
             }
 
             return this.prisma.folder.delete({ where: { id: folderId } });
