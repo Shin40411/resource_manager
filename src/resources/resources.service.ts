@@ -8,6 +8,7 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { compressImage } from '../common/filters/image-processor';
 import { Resource } from '@prisma/client';
 import { promises as fsPromises } from 'fs';
+import * as mime from 'mime-types';
 
 @Injectable()
 export class ResourcesService {
@@ -78,34 +79,16 @@ export class ResourcesService {
                 if (file.mimetype.startsWith('video')) fileType = 'VIDEO';
 
                 const fileExt = path.extname(file.originalname);
-                const hashName = crypto.createHash('sha256').update(file.originalname + Date.now()).digest('hex');
-                const encryptedFileName = `${hashName}${fileExt}`;
+                const newFileName = crypto.createHash('sha256').update(file.originalname + Date.now()).digest('hex');
+                const newFilePath = `${newFileName}${fileExt}`;
 
-                const encryptedFilePath = path.join(path.dirname(filePath), encryptedFileName);
-
+                const encryptedFilePath = path.join(path.dirname(filePath), newFilePath);
                 if (!fs.existsSync(filePath)) {
                     throw new HttpException('Tập tin không tồn tại', HttpStatus.NOT_FOUND);
                 }
+                await fs.promises.rename(filePath, encryptedFilePath);
 
-                await this.encryptFile(filePath, encryptedFilePath);
-                fs.unlink(filePath, async (err) => {
-                    if (err) {
-                        const tempDir = path.join(path.dirname(filePath), 'temp', fileType);
-                        if (!fs.existsSync(tempDir)) {
-                            fs.mkdirSync(tempDir, { recursive: true });
-                        }
-
-                        const tempFilePath = path.join(tempDir, path.basename(filePath));
-
-                        try {
-                            await fs.promises.rename(filePath, tempFilePath);
-                        } catch (renameErr) {
-                            throw new HttpException('Đã xảy ra lỗi khi di chuyển tập tin vào thư mục tạm', HttpStatus.INTERNAL_SERVER_ERROR);
-                        }
-                    }
-                });
-
-                return await this.saveFileData(encryptedFileName, decodedName, encryptedFilePath.replace('uploads/', '/'), fileType, file.size, userId, folderId);
+                return await this.saveFileData(newFilePath, decodedName, encryptedFilePath.replace('uploads/', '/'), fileType, file.size, userId, folderId);
             })
         );
         return { files: filePaths };
@@ -114,18 +97,44 @@ export class ResourcesService {
     async saveFileData(
         filename: string,
         originalFilename: string,
-        path: string,
+        pathOnDb: string,
         type: 'IMAGE' | 'VIDEO' | 'FILE',
         size: number,
         userId: number,
         folderId?: string
     ) {
         try {
+            const existingFile = await this.prisma.resource.findFirst({
+                where: {
+                    originalFilename,
+                    userId,
+                },
+            });
+
+            if (existingFile) {
+                let autoCount = 1;
+                const fileExt = path.extname(originalFilename);
+                let baseName = path.basename(originalFilename, fileExt);
+                let newOriginalFilename = `${baseName}-(${autoCount})${fileExt}`;
+
+                while (await this.prisma.resource.findFirst({
+                    where: {
+                        originalFilename: newOriginalFilename,
+                        userId,
+                    },
+                })) {
+                    autoCount++;
+                    newOriginalFilename = `${baseName}-(${autoCount})${fileExt}`;
+                }
+
+                originalFilename = newOriginalFilename;
+            }
+
             return await this.prisma.resource.create({
                 data: {
                     filename,
                     originalFilename,
-                    path,
+                    path: pathOnDb,
                     type,
                     size,
                     userId,
@@ -172,6 +181,24 @@ export class ResourcesService {
         });
     }
 
+    async getFileByName(filepath: string, res: Response) {
+        if (!filepath || filepath === '') {
+            throw new HttpException('File path không hợp lệ', HttpStatus.BAD_REQUEST);
+        }
+
+        const normalizedPath = path.normalize(filepath);
+
+        if (!fs.existsSync(normalizedPath)) {
+            throw new HttpException('File not found', HttpStatus.NOT_FOUND);
+        }
+
+        const absolutePath = path.resolve(normalizedPath);
+        const contentType = mime.lookup(absolutePath) || 'application/octet-stream';
+
+        res.setHeader('Content-Type', contentType);
+        res.sendFile(absolutePath);
+    }
+
     async removeFile(filename: string): Promise<void> {
         const folders = ['images', 'videos', 'files'];
         let deletedFiles: string[] = [];
@@ -190,13 +217,14 @@ export class ResourcesService {
             for (const folder of folders) {
                 if (file_existed?.filename) {
                     const potentialPath = path.join('uploads', folder, file_existed.filename);
+                    console.log('potentialPath', potentialPath);
                     try {
                         await fsPromises.access(potentialPath);
                         await fsPromises.unlink(potentialPath);
                         deletedFiles.push(file_existed.filename);
                         break;
                     } catch (err) {
-                        // Không làm gì ...
+                        console.log(`File không tồn tại trong thư mục ${folder}: ${err}`);
                     }
                 }
             }
@@ -342,7 +370,7 @@ export class ResourcesService {
                 // });
                 for (const file of filesExisting) {
                     await this.removeFile(file.filename);
-                }                
+                }
             }
 
             return this.prisma.folder.delete({ where: { id: folderId } });

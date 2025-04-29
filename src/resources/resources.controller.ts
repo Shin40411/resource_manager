@@ -1,10 +1,12 @@
-import { Controller, Param, Get, Post, Put, Delete, Query, UploadedFiles, UseInterceptors, UseGuards, Res, HttpException, HttpStatus, Body } from '@nestjs/common';
+import { Controller, Param, Get, Post, Put, Delete, Query, UploadedFiles, UseInterceptors, UseGuards, Res, HttpException, HttpStatus, Body, Req } from '@nestjs/common';
 import { AuthGuard } from 'src/auth/auth.guard';
 import { ResourcesService } from './resources.service';
 import { multerConfig } from '../common/filters/multer.config';
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { Response } from 'express';
 import { AuthService } from 'src/auth/auth.service';
+import { extname, join } from 'path';
+import { existsSync } from 'fs';
 
 @Controller('resources')
 @UseGuards(AuthGuard)
@@ -14,8 +16,8 @@ export class ResourcesController {
     @Post('uploads')
     @UseInterceptors(FilesInterceptor('files', 10, multerConfig))
     async uploadFiles(
-        @UploadedFiles() files: Express.Multer.File[], 
-        @Body('userId') userId: string, 
+        @UploadedFiles() files: Express.Multer.File[],
+        @Body('userId') userId: string,
         @Body('folderId') folderId?: string
     ) {
         const numericUserId = Number(userId);
@@ -30,6 +32,35 @@ export class ResourcesController {
         return this.resourceService.createFolder(name, userId);
     }
 
+    @Post('filePath')
+    async getFilePath(@Body('path') path: string, @Res() res: Response) {
+        if (!path) {
+            return res.status(400).json({ message: 'Không tìm thấy path' });
+        }
+
+        const safePath = path.replace(/\\/g, '/');
+        if (!existsSync(join(__dirname, '..', '..', safePath))) {
+            return res.status(404).json({ message: 'Không tìm thấy file' });
+        }
+
+        const fileUrl = `${process.env.SERVER_URL}/${safePath}`;
+        return res.json({ url: fileUrl });
+    }
+
+    @Post('file')
+    async getFile(@Body('filepath') filepath: string, @Res() res: Response) {
+        try {
+            if (!filepath) {
+                throw new HttpException('File path không hợp lệ', HttpStatus.BAD_REQUEST);
+            }
+
+            return this.resourceService.getFileByName(filepath, res);
+        } catch (error) {
+            console.error(error);
+            throw new HttpException('Failed to get file', HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
     //PUT
     @Put('folder')
     async renameFolder(@Body('idFolder') idFolder: string, @Body('newName') newName: string) {
@@ -42,14 +73,6 @@ export class ResourcesController {
     }
 
     // GET
-    @Get('file/:filename')
-    async getFile(@Param('filename') filename: string, @Res() res: Response) {
-        try {
-            return this.resourceService.getDecryptedFile(filename, res);
-        } catch (error) {
-            throw new HttpException('Failed to get file', HttpStatus.INTERNAL_SERVER_ERROR);
-        }
-    }
 
     @Get(':userId/files')
     async getFiles(@Param('userId') userId: string, @Res() res: Response) {
@@ -58,9 +81,9 @@ export class ResourcesController {
     }
 
     @Get(':userId/folder/:folderId/files')
-    async getFilesByFolder(@Param('folderId') folderId: string, @Param('userId') userId: string , @Res() res: Response) {
+    async getFilesByFolder(@Param('folderId') folderId: string, @Param('userId') userId: string, @Res() res: Response) {
         const files = await this.resourceService.getFilesByFolder(folderId, userId);
-        return res.status(200).json({files});
+        return res.status(200).json({ files });
     }
 
     @Get('stats')
