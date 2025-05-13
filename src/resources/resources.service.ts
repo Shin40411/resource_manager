@@ -239,10 +239,12 @@ export class ResourcesService {
         }
     }
 
-    async getStatOnDb(typeOfFile: 'IMAGE' | 'VIDEO' | 'FILE') {
+    async getStatOnDb(typeOfFile: 'IMAGE' | 'VIDEO' | 'FILE', userId: string) {
+
         const filesOnStat = await this.prisma.resource.findMany(
             {
                 where: {
+                    userId: Number(userId),
                     type: typeOfFile
                 }
             }

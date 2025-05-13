@@ -73,7 +73,6 @@ export class ResourcesController {
     }
 
     // GET
-
     @Get(':userId/files')
     async getFiles(@Param('userId') userId: string, @Res() res: Response) {
         const files = await this.resourceService.getFileList(userId);
@@ -96,13 +95,13 @@ export class ResourcesController {
         };
     }
 
-    @Get('stats/:type')
-    async getStatBy(@Param('type') type: string) {
+    @Get('stats/:type/:userId')
+    async getStatBy(@Param('type') type: string, @Param('userId') userId: string) {
         const validTypes = ['IMAGE', 'VIDEO', 'FILE'] as const;
         if (!validTypes.includes(type as any)) {
             throw new HttpException('Invalid type parameter', HttpStatus.BAD_REQUEST);
         }
-        const countFiles = await this.resourceService.getStatOnDb(type as 'IMAGE' | 'VIDEO' | 'FILE');
+        const countFiles = await this.resourceService.getStatOnDb(type as 'IMAGE' | 'VIDEO' | 'FILE', userId);
         return { count: countFiles };
     }
 

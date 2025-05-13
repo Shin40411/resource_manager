@@ -72,4 +72,31 @@ export class AuthService {
         if (!user) throw new HttpException("Không tìm thấy thông tin người dùng", HttpStatus.UNAUTHORIZED);
         return user;
     }
+
+    async resetPassword(userId: number, oPass: string, nPass: string) {
+        const existingUser = await this.prisma.user.findUnique({ where: { id: userId } });
+
+        if (!existingUser) {
+            throw new HttpException("Không tìm thấy thông tin người dùng", HttpStatus.UNAUTHORIZED);
+        }
+
+        const isPasswordValid = await bcrypt.compare(oPass, existingUser.password);
+
+        if (!isPasswordValid) {
+            throw new HttpException("Mật khẩu hiện tại không chính xác", HttpStatus.UNAUTHORIZED);
+        }
+
+        const hashedPassword = await bcrypt.hash(nPass, 10);
+
+        const updated = await this.prisma.user.update({
+            where: { id: userId },
+            data: { password: hashedPassword },
+        });
+
+        return {
+            statusCode: HttpStatus.OK,
+            message: 'Đổi mật khẩu thành công',
+            userId: updated.id,
+        };
+    }
 }
